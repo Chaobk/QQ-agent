@@ -13,7 +13,7 @@
 //     前端传什么都没用 —— 这是"技能页输插件口令也装进插件目录"的保证）
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, DATA_DIR, getConfig } from './config.js';
+import { EXTENSIONS_ROOT as ROOT, DATA_DIR, getConfig } from './config.js';
 import { logger } from './logger.js';
 
 export const MARKET_API_BASE = 'https://www.kondius.cn/api/community';

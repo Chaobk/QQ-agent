@@ -17,11 +17,15 @@ export const ROOT = path.resolve(__dirname, '..');
 //   DATA_DIR 是整个进程的根路径，配置、会话、记忆、表情库全挂在它下面。
 //   晚一步设置就会有一部分文件写到主实例的目录里，造成两个实例数据互相污染。
 import { profileSuffix, portOffset } from './profile.js';
+import { resolveRuntimePaths } from './runtime-paths.js';
 
 // 2026-09-19 起 https：http 版 301 跳转且明文传输可被 MITM 篡改成本展示。
 // 证书与内容已实测可达（同一路径，nginx 直接 200）。
 export const FIXED_PRICE_REMOTE_URL = 'https://kondius.cn/qq-agent/model-prices.json';
-export const DATA_DIR = process.env.QQ_AGENT_DATA_DIR || path.join(ROOT, `data${profileSuffix()}`);
+const runtimePaths = resolveRuntimePaths({ root: ROOT });
+export const DATA_DIR = runtimePaths.data;
+export const EXTENSIONS_ROOT = runtimePaths.extensions;
+export const RUNTIME_DIR = runtimePaths.runtime;
 export const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
 export const DEFAULT_CONFIG = {

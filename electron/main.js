@@ -4,6 +4,7 @@ import { app, BrowserWindow, Tray, Menu, nativeImage, session, shell, dialog, ip
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { resolveRuntimePaths } from '../src/runtime-paths.js';
 import { dataDirName, describeInstance } from '../src/profile.js';
 
 
@@ -76,6 +77,7 @@ ipcMain.handle('qqa-captcha-interceptor-status', () =>
 // 兼容兜底：外置 %APPDATA% 时期（2026-09-06 短命版本）的数据自动搬回安装目录。
 function resolveDataDir() {
   if (process.env.QQ_AGENT_DATA_DIR) return process.env.QQ_AGENT_DATA_DIR;
+  if (process.platform === 'linux') return resolveRuntimePaths({ root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') }).data;
   // 开发模式（.bat 直起 node_modules 里的 electron.exe + 项目目录）：项目内 data/
   if (!app.isPackaged) return path.resolve(fileURLToPath(import.meta.url), '..', '..', dataDirName());
   const portable = path.join(path.dirname(app.getPath('exe')), dataDirName());
@@ -156,6 +158,16 @@ let quitting = false;
 function applyAutoStart() {
   if (!core) return;
   const cfg = core.getConfig();
+  if (process.platform === 'linux') {
+    const autostartDir = path.join(process.env.XDG_CONFIG_HOME || app.getPath('appData'), 'autostart');
+    const desktopFile = path.join(autostartDir, 'qq-agent.desktop');
+    if (!cfg.server?.autoStart) { try { fs.unlinkSync(desktopFile); } catch {} return; }
+    fs.mkdirSync(autostartDir, { recursive: true });
+    const quote = s => '"' + String(s).replace(/[\\"`$]/g, c => '\\' + c).replace(/%/g, '%%') + '"';
+    const command = quote(process.env.APPIMAGE || process.execPath) + (app.isPackaged ? '' : ' ' + quote(app.getAppPath()));
+    fs.writeFileSync(desktopFile, `[Desktop Entry]\nType=Application\nName=QQ Agent\nExec=${command}\nTerminal=false\n`);
+    return;
+  }
   app.setLoginItemSettings({ openAtLogin: !!cfg.server?.autoStart });
 }
 

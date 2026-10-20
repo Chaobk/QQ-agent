@@ -15,8 +15,19 @@ app.start().catch((error) => {
   process.exit(1);
 });
 
-process.on('SIGINT', async () => {
-  console.log('退出中…');
-  await app.stop();
-  process.exit(0);
-});
+let stopping = false;
+async function shutdown(signal) {
+  if (stopping) return;
+  stopping = true;
+  console.log(`收到 ${signal}，退出中…`);
+  const deadline = setTimeout(() => process.exit(1), 25000);
+  deadline.unref();
+  try {
+    await app.stop();
+    process.exit(0);
+  } catch (error) {
+    console.error('[退出失败]', error);
+    process.exit(1);
+  }
+}
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => shutdown(signal));

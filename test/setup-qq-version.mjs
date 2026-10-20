@@ -116,8 +116,8 @@ try {
   ok('--check 可以正常运行');
 } catch (e) {
   const out = String(e.stdout || '') + String(e.stderr || '');
-  check(out.includes('CLIENT_BUILD'),
-    '--check 会报告协议栈的 CLIENT_BUILD（排查版本问题时第一眼就能看到）',
+  check(process.platform === 'linux' ? out.includes('Linux 服务版') && out.includes('SnowLuma') : out.includes('CLIENT_BUILD'),
+    process.platform === 'linux' ? '--check 会报告独立 SnowLuma 的就绪情况' : '--check 会报告协议栈的 CLIENT_BUILD（排查版本问题时第一眼就能看到）',
     out.slice(0, 400));
 }
 

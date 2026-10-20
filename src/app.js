@@ -27,6 +27,8 @@ import { extractCandidateUrls, dispatchMediaLinks } from './media-links.js';
 import { createRoutes } from './routes.js';
 import * as instanceLockModule from './instance-lock.js';
 import { logger } from './logger.js';
+import { createConsoleAccess } from './console-access.js';
+import { externalProtocol, runtimeCapabilities } from './platform.js';
 import { startCommunitySync, isGloballyBlocked, FIXED_PRICE_FEED_URL } from './community.js';
 
 // 全局 fetch（undici）默认连接建立超时只有 10 秒，openrouter.ai 这类海外端点
@@ -171,6 +173,7 @@ export function createApp({ log = console.log } = {}) {
 
   /** 从 SnowLuma 的 runtime.json 读取 WebUI 地址（http(s)://host:port/）。拿不到就返回空串。 */
   function snowlumaWebuiUrl() {
+    if (process.env.QQ_AGENT_PROTOCOL_WEBUI_URL) return process.env.QQ_AGENT_PROTOCOL_WEBUI_URL;
     try {
       const dir = snowlumaDir();
       if (!dir) return '';
@@ -230,6 +233,7 @@ export function createApp({ log = console.log } = {}) {
    *  对外启动实例毫无作用，用户只能去任务管理器，而残留实例会继续抢占管道与端口。
    *  返回是否执行了关闭动作。 */
   async function stopSnowluma() {
+    if (externalProtocol) throw new Error('协议端由外部服务管理，请在服务器上操作');
     const proc = snowlumaProc;
     if (proc) {
       try {
@@ -386,6 +390,7 @@ export function createApp({ log = console.log } = {}) {
 
   /** 启动便携 QQ（如已在运行则跳过） */
   async function launchPortableQQ() {
+    if (externalProtocol) return { ok: false, error: 'QQ 由外部服务管理，请打开远程桌面扫码登录' };
     if (!qqPortableReady()) {
       return { ok: false, error: '便携 QQ 未安装：请先运行 npm run setup' };
     }
@@ -447,6 +452,7 @@ export function createApp({ log = console.log } = {}) {
 
   /** 关闭便携 QQ（只杀路径匹配的 PID，绝不碰用户 QQ） */
   async function stopPortableQQ() {
+    if (externalProtocol) return { ok: false, error: 'QQ 由外部服务管理，请在远程桌面中操作' };
     const pid = await qqPortableRunningPid();
     if (!pid) {
       pushQqLog('便携 QQ 未在运行');
@@ -490,6 +496,7 @@ export function createApp({ log = console.log } = {}) {
 
   /** 拉起 SnowLuma。优先用项目内置 node.exe 直接运行（日志进内置控制台）；失败再回退到独立窗口 launcher.bat。 */
   async function launchSnowluma() {
+    if (externalProtocol) return { ok: false, error: '协议端由外部服务管理，请通过远程桌面完成 QQ 登录' };
     const dir = snowlumaDir();
     if (!dir) return { ok: false, error: '找不到 SnowLuma 目录：请确认项目内 snowluma/ 文件夹存在，或在设置里填写 SnowLuma 目录' };
     // ⚠️ 端口探测必须用 WebUI 端口（2026-09-19）：WS 3001 是 OneBot 实例开的，
@@ -1162,36 +1169,11 @@ export function createApp({ log = console.log } = {}) {
   // 服务只监听回环，但**浏览器里的任意网页都能向 127.0.0.1 发简单请求**，
   // 而 CORS 只挡"读响应"、挡不住"副作用"（改配置、暂停、重置数据…）。
   // 所以所有 /api/* 都必须来自回环 Host；带 Origin/Referer 时必须同源。
-  function isLoopbackHostHeader(host) {
-    return /^127\.0\.0\.1(:\d+)?$/.test(host)
-      || /^localhost(:\d+)?$/.test(host)
-      || /^\[::1\](:\d+)?$/.test(host);
-  }
-
-  function originAllowed(req) {
-    const host = String(req.headers.host ?? '');
-    if (!isLoopbackHostHeader(host)) return false;
-    const origin = String(req.headers.origin ?? '');
-    if (origin) {
-      try {
-        const u = new URL(origin);
-        return isLoopbackHostHeader(u.host) && u.host === host;
-      } catch { return false; }
-    }
-    const referer = String(req.headers.referer ?? '');
-    if (referer) {
-      try { return new URL(referer).host === host; } catch { return false; }
-    }
-    // 无来源信息（curl / 本机脚本 / 地址栏直达）—— 放行
-    return true;
-  }
-
-  function authorize(req) {
-    const token = String(getConfig().server?.token ?? '');
-    if (!token) return true;
-    const url = new URL(req.url, 'http://127.0.0.1');
-    return req.headers['x-console-token'] === token || url.searchParams.get('token') === token;
-  }
+  const consoleAccess = createConsoleAccess({
+    getToken: () => process.env.QQ_AGENT_CONSOLE_TOKEN || getConfig().server?.token || '',
+    publicOrigins: process.env.QQ_AGENT_PUBLIC_ORIGIN || ''
+  });
+  const { authorize, originAllowed } = consoleAccess;
 
   // ── 配置脱敏 ────────────────────────────────────────────────────────────
   // 凡是字段名命中这些模式的，值一律替换为空串（保留"有/无"的 hasXxx 标记）。
@@ -1266,6 +1248,7 @@ export function createApp({ log = console.log } = {}) {
    *    已删除 —— 来源校验交由 originAllowed() 统一负责。
    */
   function keyEndpointAllowed(req) {
+    if (process.env.QQ_AGENT_CONSOLE_TOKEN) return authorize(req) && originAllowed(req);
     const token = String(getConfig().server?.token ?? '');
     if (token) {
       const url = new URL(req.url, 'http://127.0.0.1');
@@ -1296,6 +1279,7 @@ export function createApp({ log = console.log } = {}) {
     snowlumaDir, snowlumaWsPort, snowlumaWebuiUrl, snowlumaWebuiPort, snowlumaStatus, snowlumaLogs,
     launchSnowluma, stopSnowluma,
     qqPortableStatus, qqPortableLogs, launchPortableQQ, stopPortableQQ,
+    runtimeCapabilities,
     visionScan, isPortOpen,
     buildUsageStats, buildUsageBreakdown,
     reloadSkills
@@ -1532,7 +1516,7 @@ export function createApp({ log = console.log } = {}) {
     })();
 
     const snowlumaReady = (async () => {
-      if (!getConfig().snowluma?.autoLaunch) return;
+      if (externalProtocol || !getConfig().snowluma?.autoLaunch) return;
       try {
         // 等待就绪用 WebUI 端口（进程即起即听）；OneBot WS 端口要等账号登录，
         // 在这里等 3001 是"永远等不到"的（没人扫码就一直挂着 20 秒）。
@@ -1650,7 +1634,7 @@ export function createApp({ log = console.log } = {}) {
     }
     sseClients.clear();
     onebot.close();
-    server.close();
+    await new Promise(resolve => { server.close(() => resolve()); server.closeIdleConnections?.(); });
     // 内置启动的 SnowLuma：QQ Agent 退出时一并关掉，避免留一个无窗口的后台进程。
     // 注意：SnowLuma 退出时不一定能立刻把 config 落盘，但我们的 stop 不会再去读它，
     // 下次启动会读到完整文件。

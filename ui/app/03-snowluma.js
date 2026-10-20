@@ -104,6 +104,34 @@ async function loadSnowlumaPage({ quiet = false } = {}) {
       ? { top: oldAppPre.scrollTop, atBottom: oldAppPre.scrollTop + oldAppPre.clientHeight >= oldAppPre.scrollHeight - 40 }
       : null;
 
+    if (s.runtime?.externalProtocol) {
+      const remote = s.runtime;
+      box.innerHTML = `
+        <div class="snowluma-page-card">
+          <h2>SnowLuma（服务器）</h2>
+          <p>QQ 与 SnowLuma 已由服务器独立运行，QQ Agent 重启不会清除登录状态。</p>
+          <p>OneBot：<strong>${onebotConnected ? '已连接' : '等待 QQ 登录及 OneBot 配置'}</strong></p>
+          <div class="snowluma-actions">
+            ${remote.loginUrl ? '<button class="btn btn-primary" id="remote-qq-login">打开 QQ 扫码登录</button>' : ''}
+            ${remote.protocolWebuiUrl ? '<button class="btn" id="remote-protocol-ui">打开 SnowLuma 管理页面</button>' : ''}
+            <button class="btn" id="sl-refresh-btn">刷新状态</button>
+          </div>
+          <p class="hint">首次使用请先在 SnowLuma 管理页面完成协议确认，再打开远程桌面扫码登录 QQ；扫码后在 SnowLuma 中选中 QQ 进程并点击 Load / 加载。</p>
+          <div class="sl-log-block"><div class="hint">应用日志</div>
+            <pre class="snowluma-logs-view" id="app-logs-view">${esc(appLogText)}</pre></div>
+        </div>`;
+      const openRemote = (id, target) => $(id)?.addEventListener('click', () => {
+        try {
+          const u = new URL(target, location.href);
+          if (u.protocol === 'https:' || u.protocol === 'http:') window.open(u.href, '_blank', 'noopener');
+        } catch { alert('服务器配置的访问地址无效'); }
+      });
+      openRemote('#remote-qq-login', remote.loginUrl);
+      openRemote('#remote-protocol-ui', remote.protocolWebuiUrl);
+      $('#sl-refresh-btn')?.addEventListener('click', () => loadSnowlumaPage());
+      return;
+    }
+
     box.innerHTML = `
       <div class="snowluma-page-card">
         <h2>SnowLuma（OneBot 网关）</h2>

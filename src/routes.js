@@ -12,7 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { openDesktopTarget } from './platform.js';
 import { getConfig, updateConfig, deepMerge as deepMergeConfig, DATA_DIR } from './config.js';
 import { customSearch } from './web-search.js';
 import { listModels, chatCompletion, resolveApiKey, estimateCost, cacheHitRate } from './llm.js';
@@ -49,6 +49,7 @@ export function createRoutes(deps) {
     snowlumaDir, snowlumaWsPort, snowlumaWebuiUrl, snowlumaStatus, snowlumaLogs,
     launchSnowluma, stopSnowluma,
     qqPortableStatus, qqPortableLogs, launchPortableQQ, stopPortableQQ,
+    runtimeCapabilities,
     visionScan,
     buildUsageStats, buildUsageBreakdown,
     reloadSkills
@@ -124,6 +125,7 @@ export function createRoutes(deps) {
             ...snowlumaStatus()
           },
           qqPortable: await qqPortableStatus(),
+          runtime: runtimeCapabilities(),
           orchestrator: orchestrator.statusSummary(),
           usage,
           cost,
@@ -139,8 +141,7 @@ export function createRoutes(deps) {
       method: 'POST', pattern: '/api/open-data-dir',
       handler: async ({ res, json }) => {
         try {
-          spawn('explorer.exe', [DATA_DIR], { detached: true, stdio: 'ignore' }).unref();
-          return json(res, 200, { ok: true, dir: DATA_DIR });
+          return json(res, 200, await openDesktopTarget(DATA_DIR));
         } catch (error) {
           return json(res, 500, { ok: false, error: String(error?.message ?? error) });
         }
@@ -257,7 +258,7 @@ export function createRoutes(deps) {
       method: 'POST', pattern: '/api/snowluma/stop',
       handler: async ({ res, json }) => {
         try {
-          const stopped = stopSnowluma();
+          const stopped = await stopSnowluma();
           return json(res, 200, { ok: true, stopped, embedded: snowlumaStatus().embedded, pid: snowlumaStatus().pid });
         } catch (error) {
           return json(res, 500, { ok: false, error: String(error?.message ?? error) });
@@ -269,8 +270,7 @@ export function createRoutes(deps) {
       handler: async ({ res, json }) => {
         const dir = snowlumaDir();
         if (!dir) return json(res, 400, { ok: false, error: '找不到 SnowLuma 目录' });
-        spawn('explorer.exe', [dir], { detached: true, stdio: 'ignore' }).unref();
-        return json(res, 200, { ok: true });
+        return json(res, 200, await openDesktopTarget(dir));
       }
     },
     {
@@ -278,8 +278,7 @@ export function createRoutes(deps) {
       handler: async ({ res, json }) => {
         const webuiUrl = snowlumaWebuiUrl();
         if (!webuiUrl) return json(res, 400, { ok: false, error: '没有找到 SnowLuma WebUI 地址（等日志出现 listening 后再试）' });
-        spawn('cmd.exe', ['/c', 'start', '', webuiUrl], { detached: true, stdio: 'ignore' }).unref();
-        return json(res, 200, { ok: true, webuiUrl });
+        return json(res, 200, await openDesktopTarget(webuiUrl, { url: true }));
       }
     },
 

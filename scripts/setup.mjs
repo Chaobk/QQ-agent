@@ -896,7 +896,7 @@ async function main() {
     log(`SnowLuma: ${sl ? '✅ 就绪' : '❌ 缺失'}`);
     log(`便携 QQ:  ${qq ? '✅ 就绪' : '❌ 缺失'}`);
     const cb = readClientBuild();
-    if (cb) log(`协议栈 CLIENT_BUILD: ${cb}（本脚本期望 ${EXPECTED_CLIENT_BUILD}）`);
+    log(`协议栈 CLIENT_BUILD: ${cb || '（未安装 SnowLuma 或无法读取）'}（本脚本期望 ${EXPECTED_CLIENT_BUILD}）`);
     if (sl && qq) { checkClientBuildMatch(); return; }
     process.exit(1);
   }
@@ -956,4 +956,15 @@ async function main() {
   log('  4. 机器人开始工作');
 }
 
-main().catch((e) => die(e.stack ?? e.message));
+if (process.platform === 'linux') {
+  console.log('Linux 服务版使用独立 SnowLuma 容器，不安装 Windows QQ/node.exe。部署步骤见 doc/linux-server.md。');
+  if (CHECK_ONLY) {
+    const url = process.env.QQ_AGENT_PROTOCOL_HEALTH_URL || 'http://127.0.0.1:5099';
+    fetch(url, { signal: AbortSignal.timeout(5000) }).then(r => {
+      console.log(`SnowLuma WebUI: HTTP ${r.status}`);
+      if (r.status >= 500) process.exitCode = 1;
+    }).catch(e => { console.error('SnowLuma 未就绪:', e.message); process.exitCode = 1; });
+  }
+} else {
+  main().catch((e) => die(e.stack ?? e.message));
+}

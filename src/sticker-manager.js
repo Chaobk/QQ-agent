@@ -31,8 +31,14 @@ export function localStickerPath(raw) {
   try { pathname = decodeURIComponent(new URL(value).pathname); } catch { return null; }
   // file:///C:/... 在 Windows URL pathname 前面多一个斜杠。
   if (/^\/[A-Za-z]:[\\/]/.test(pathname)) pathname = pathname.slice(1);
-  const root = path.resolve(stickerImagesDir()) + path.sep;
-  const inside = (p) => String(p).toLowerCase().startsWith(root.toLowerCase());
+  const inside = (p) => {
+    try {
+      // Linux paths are case-sensitive. Resolve symlinks before checking containment.
+      const root = fs.realpathSync(stickerImagesDir());
+      const relative = path.relative(root, fs.realpathSync(p));
+      return relative !== '' && relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative);
+    } catch { return false; }
+  };
   const isFile = (p) => { try { return fs.existsSync(p) && fs.statSync(p).isFile(); } catch { return false; } };
   const full = path.resolve(pathname);
   if (inside(full) && isFile(full)) return full;

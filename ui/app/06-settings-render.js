@@ -973,12 +973,13 @@ return `
 }
 
 function renderDesktopSection(c) {
+  const desktop = state.status?.runtime?.desktop !== false;
   return `
-    <h3>桌面端</h3>
+    ${desktop ? `<h3>桌面端</h3>
     <div class="checkbox-row"><input type="checkbox" id="cfg-autostart" ${c.server?.autoStart ? 'checked' : ''} />
       <label for="cfg-autostart">开机自启</label></div>
     <div class="checkbox-row"><input type="checkbox" id="cfg-closetray" ${c.server?.closeToTray !== false ? 'checked' : ''} />
-      <label for="cfg-closetray">点关闭时最小化到托盘</label></div>
+      <label for="cfg-closetray">点关闭时最小化到托盘</label></div>` : ''}
     <h3>界面</h3>
     <div class="field"><label>主题</label>
       <div class="theme-picker" id="theme-picker">

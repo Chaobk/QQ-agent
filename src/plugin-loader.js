@@ -24,6 +24,7 @@
 //   4. 生命周期真实性：禁用一定调 deactivate，避免"开关关了但监听器还在"
 
 import fs from 'node:fs';
+import { resolveRuntimePaths } from './runtime-paths.js';
 import path from 'node:path';
 import { format } from 'node:util';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -38,8 +39,9 @@ import { skillErrorText } from './skills/errors.js';
 // **静默加载 0 个**（既不报错也不打日志，排查成本极高）。
 // 项目内其它模块（app.js 的 UI_DIR、config.js 的 ROOT）都是同一约定。
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SKILLS_DIR = path.resolve(APP_ROOT, 'skills');
-const PLUGINS_DIR = path.resolve(APP_ROOT, 'plugins');
+const EXTENSIONS_ROOT = resolveRuntimePaths({ root: APP_ROOT }).extensions;
+const SKILLS_DIR = path.resolve(EXTENSIONS_ROOT, 'skills');
+const PLUGINS_DIR = path.resolve(EXTENSIONS_ROOT, 'plugins');
 
 /**
  * 旧插件清单的 prompt 是 `{ when, examples[], instruction }` 形态，

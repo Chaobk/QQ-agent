@@ -90,6 +90,19 @@ plugins/my-plugin/            skills/my-skill/
 - **热重载默认开启**：目录放进去就生效，无需重启（`config.extensions.hotReload` 可关；
   等价于"任意落地的 JS 会被执行"，共享机器建议关掉）。
 - 架构总览见 [doc/extend_development/skill-system.md](doc/extend_development/skill-system.md)。
+## Linux 服务版
+
+Linux 可使用独立 SnowLuma 容器运行 QQ，通过浏览器管理 QQ Agent，不需要 Electron 或 NapCat。
+安装步骤、HTTP 管理入口、认证、数据目录及 systemd 配置见 [Linux 服务部署](doc/linux-server.md)。
+
+```bash
+npm ci --omit=dev --ignore-scripts
+npm run server
+```
+
+正式部署使用 `deploy/linux/` 模板。首次运行先在 SnowLuma 中完成协议确认，
+再扫码登录 QQ 并手动加载 QQ 连接，然后填写模型配置和聊天白名单。
+
 ## 安装与使用
 **三步搞定**（推荐）：
 ```bash

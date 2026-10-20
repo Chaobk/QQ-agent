@@ -38,7 +38,7 @@ function updateReadinessDots(s) {
   if (dots.length !== 4) return;
 
   const qq = s?.qqPortable || {};
-  const qqRunning = !!qq.running;
+  const qqRunning = s?.runtime?.externalProtocol ? !!s?.onebot?.connected : !!qq.running;
   const slRunning = !!s?.snowluma?.running;
   const obConnected = !!s?.onebot?.connected;
   const cfg = state.config || {};
@@ -46,7 +46,7 @@ function updateReadinessDots(s) {
 
   // 圆点 0：QQ 内核
   dots[0].className = 'rdot' + (qqRunning ? ' on' : '');
-  dots[0].title = qqRunning ? 'QQ 内核运行中' : 'QQ 内核未运行（点击前往启动）';
+  dots[0].title = qqRunning ? 'QQ 内核运行中' : (s?.runtime?.externalProtocol ? '等待服务器 QQ 登录（点击前往扫码）' : 'QQ 内核未运行（点击前往启动）');
 
   // 圆点 1：SnowLuma
   dots[1].className = 'rdot' + (slRunning ? ' on' : '');
